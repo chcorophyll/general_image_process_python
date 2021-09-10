@@ -124,7 +124,7 @@ class FindContours(object):
                         boarder_type = "Outer"
                     elif self.grid[i][j] > 1 and self.grid[i][j+1] == 0:
                         self.NBD += 1
-                        self.board_follow([i, j], [i , j+1], 1)
+                        self.board_follow([i, j], [i, j+1], 1)
                         boarder_type = "Hole"
                     else:
                         continue
@@ -134,4 +134,3 @@ class FindContours(object):
                     self.contours_dict[self.NBD] = self.contour(parent, boarder_type, [i-1, j-1])
                     self.contours_dict[parent]["son"].append(self.NBD)
         self.grid = self.grid[1:-1, 1:-1]
-        
