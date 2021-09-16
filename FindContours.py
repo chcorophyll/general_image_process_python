@@ -73,7 +73,7 @@ class FindContours(object):
             current_index = (start_index + i*weight + 8) % 8
             x = neighbors[current_index][0] + center[0] - 1
             y = neighbors[current_index][1] + center[1] - 1
-            if self.grid[x][y] == 1:
+            if self.grid[x][y] != 0:
                 return [x, y]
         return [-1, -1]
 
