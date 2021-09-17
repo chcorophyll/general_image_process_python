@@ -131,6 +131,6 @@ class FindContours(object):
                     parent = self.LNBD
                     if self.contours_dict[self.LNBD]["contour_type"] == boarder_type:
                         parent = self.contours_dict[self.LNBD]["parent"]
-                    self.contours_dict[self.NBD] = self.contour(parent, boarder_type, [i-1, j-1])
+                    self.contours_dict[self.NBD] = self.contour(parent, boarder_type, [i-1, j-1]) # true ij cause padding
                     self.contours_dict[parent]["son"].append(self.NBD)
         self.grid = self.grid[1:-1, 1:-1]
