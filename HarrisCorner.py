@@ -46,7 +46,7 @@ class HarrisCorner(object):
                     color_img.itemset((y, x, 1), 0)
                     color_img.itemset((y, x, 2), 255)
         return color_img, corner_list
-    
+
 
 if __name__ == "__main__":
     test_path = "./test_img.jpg"
