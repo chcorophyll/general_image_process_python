@@ -134,7 +134,7 @@ def calculate_score(image, point, region_of_interest):
     return score
 
 
-def suprress(image, corners, regions_of_interest):
+def suppress(image, corners, regions_of_interest):
     i = 1
     while i < len(corners):
         current_point = corners[i]
@@ -144,8 +144,10 @@ def suprress(image, corners, regions_of_interest):
             previous_score = calculate_score(image, previous_point, regions_of_interest[i-1])
             if current_score > previous_score:
                 del(corners[i - 1])
+                del(regions_of_interest[i - 1])
             else:
                 del(corners[i])
+                del(regions_of_interest[i])
             i -= 1
         i += 1
     return corners
@@ -168,5 +170,5 @@ def detect(image, threshold=50):
             if is_corner(image, row, col, region_of_interest, threshold):
                 corners.append((row, col))
                 regions_of_interest.append(region_of_interest)
-    corners = suprress(image, corners, regions_of_interest)
+    corners = suppress(image, corners, regions_of_interest)
     return corners
