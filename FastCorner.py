@@ -1,9 +1,9 @@
 """
 References:
 https://github.com/tbliu/FAST/blob/master/src/fast.py
-
+https://github.com/scikit-image/scikit-image/blob/main/skimage/feature/corner_cy.pyx
 """
-
+from skimage.feature import
 
 def shape(array):
     rows = len(array)
@@ -51,53 +51,73 @@ def insert_sort(window):
 
 def circle(row, col):
     point_1 = (row - 3, col)
+    point_2 = (row - 3, col + 1)
     point_3 = (row - 2, col + 2)
+    point_4 = (row - 1, col + 3)
     point_5 = (row, col + 3)
+    point_6 = (row + 1, col + 3)
     point_7 = (row + 2, col + 2)
+    point_8 = (row + 3, col + 1)
     point_9 = (row + 3, col)
+    point_10 = (row + 3, col - 1)
     point_11 = (row + 2, col - 2)
+    point_12 = (row + 1, col - 3)
     point_13 = (row, col - 3)
+    point_14 = (row - 1, col - 3)
     point_15 = (row - 2, col - 2)
-    return [point_1, point_3, point_5, point_7, point_9, point_11, point_13, point_15]
+    point_16 = (row - 3, col - 1)
+    return [point_1,point_2, point_3, point_4,
+            point_5, point_6, point_7, point_8,
+            point_9, point_10, point_11, point_12,
+            point_13, point_14, point_15, point_16]
 
 
-def is_corner(image, row, col, region_of_interest, threshold):
+def is_corner(image, row, col, region_of_interest, threshold, n=12):
     intensity = int(image[row][col])
     row_1, col_1 = region_of_interest[0]
-    row_9, col_9 = region_of_interest[4]
-    row_5, col_5 = region_of_interest[2]
-    row_13, col_13 = region_of_interest[6]
+    row_9, col_9 = region_of_interest[8]
+    row_5, col_5 = region_of_interest[4]
+    row_13, col_13 = region_of_interest[12]
     intensity_1 = int(image[row_1][col_1])
     intensity_9 = int(image[row_9][col_9])
     intensity_5 = int(image[row_5][col_5])
     intensity_13 = int(image[row_13][col_13])
-    flag_1 = 0
-    flag_9 = 0
-    if abs(intensity_1 - intensity) > threshold:
-        if intensity_1 - intensity > 0:
-            flag_1 = 1
-        else:
-            flag_1 = -1
-    if abs(intensity_9 - intensity) > threshold:
-        if intensity_9 - intensity > 0:
-            flag_9 = 1
-        else:
-            flag_9 = -1
-    flag_first = flag_1 * flag_9
-    if flag_first != 1:
+    four_check_list = [intensity_1, intensity_9, intensity_5, intensity_13]
+    bright_count = 0
+    dark_count = 0
+    for check_intensity in four_check_list:
+        if check_intensity - intensity > threshold:
+            bright_count += 1
+        elif intensity - check_intensity > threshold:
+            dark_count += 1
+    if bright_count < 3 and dark_count < 3:
         return False
-    else:
-        if abs(intensity_5 - intensity) > threshold:
-            if intensity_5 - intensity > 0 and flag_9 == 1:
+    corner_type_list = [0] * 16
+    for index, row, col in enumerate(region_of_interest):
+        current_intensity = int(image[row][col])
+        if current_intensity  - intensity > threshold:
+            corner_type_list[index] = 1
+        elif intensity - current_intensity  > threshold:
+            corner_type_list[index] = -1
+    # test bright
+    consecutive_count = 0
+    for index in range(15 + n):
+        if corner_type_list[index % 16] == 1:
+            consecutive_count += 1
+            if consecutive_count == n:
                 return True
-            elif intensity_5 - intensity < 0 and flag_9 == -1:
+        else:
+            consecutive_count = 0
+    # test
+    consecutive_count = 0
+    for index in range(15 + n):
+        if corner_type_list[index % 16] == -1:
+            consecutive_count += 1
+            if consecutive_count == n:
                 return True
-        if abs(intensity_13 - intensity) > threshold:
-            if intensity_13 - intensity > 0 and flag_9 == 1:
-                return True
-            elif intensity_13 - intensity < 0 and flag_9 == -1:
-                return True
-        return False
+        else:
+            consecutive_count = 0
+    return False
 
 
 def is_adjacent(point_1, point_2):
@@ -109,29 +129,9 @@ def is_adjacent(point_1, point_2):
 
 
 def calculate_score(image, point, region_of_interest):
-    row, col = point
-    intensity = int(image[row][col])
-    row_1, col_1 = region_of_interest[0]
-    intensity_1 = int(image[row_1][col_1])
-    row_3, col_3 = region_of_interest[1]
-    intensity_3 = int(image[row_3][col_3])
-    row_5, col_5 = region_of_interest[2]
-    intensity_5 = int(image[row_5][col_5])
-    row_7, col_7 = region_of_interest[3]
-    intensity_7 = int(image[row_7][col_7])
-    row_9, col_9 = region_of_interest[4]
-    intensity_9 = int(image[row_9][col_9])
-    row_11, col_11 = region_of_interest[5]
-    intensity_11 = int(image[row_11][col_11])
-    row_13, col_13 = region_of_interest[6]
-    intensity_13 = int(image[row_13][col_13])
-    row_15, col_15 = region_of_interest[7]
-    intensity_15 = int(image[row_15][col_15])
-    score = abs(intensity_1 - intensity) + abs(intensity_3 - intensity) + \
-            abs(intensity_5 - intensity) + abs(intensity_7 - intensity) + \
-            abs(intensity_9 - intensity) + abs(intensity_11 - intensity) + \
-            abs(intensity_13 - intensity) + abs(intensity_15 - intensity)
-    return score
+     intensity = int(image[point[0]][point[1]])
+     neighbor_intensity = [abs(intensity - int(image[row][col])) for row, col in region_of_interest]
+     return sum(neighbor_intensity)
 
 
 def suppress(image, corners, regions_of_interest):
