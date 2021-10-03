@@ -150,10 +150,10 @@ def suppress(image, corners, regions_of_interest):
                 del(regions_of_interest[i])
             i -= 1
         i += 1
-    return corners
+    return corners, regions_of_interest
 
 
-def detect(image, threshold=50):
+def detect(image, threshold=, fast_n=12):
     image = rgb2gray(image)
     corners = []
     regions_of_interest = []
@@ -167,8 +167,8 @@ def detect(image, threshold=50):
     for row in range(start_search_row, end_search_row):
         for col in range(start_search_col, end_search_col):
             region_of_interest = circle(row, col)
-            if is_corner(image, row, col, region_of_interest, threshold):
+            if is_corner(image, row, col, region_of_interest, threshold, fast_n):
                 corners.append((row, col))
                 regions_of_interest.append(region_of_interest)
-    corners = suppress(image, corners, regions_of_interest)
-    return corners
+    corners, regions_of_interest = suppress(image, corners, regions_of_interest)
+    return corners, regions_of_interest

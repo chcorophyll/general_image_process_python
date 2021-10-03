@@ -6,7 +6,7 @@ https://github.com/scikit-image/scikit-image/blob/main/skimage/feature/corner.py
 
 import cv2
 import numpy as np
-from .GaussianFilter import  gaussian_filter
+from .GaussianFilter import gaussian_filter
 
 
 def img2col(image, block_size):
@@ -77,30 +77,33 @@ class HarrisCorner(object):
         iyy = gaussian_filter(iyy)
         ixy = gaussian_filter(ixy)
         k = self.k
-        offset = self.kernel_size // 2
+        offset = self.kernel_size //
+        response = []
         for y in range(offset, height-offset):
             for x in range(offset, width-offset):
                 wxx = ixx[y-offset: y+offset+1, x-offset: x+offset+1].sum()
                 wyy = iyy[y-offset: y+offset+1, x-offset: x+offset+1].sum()
                 wxy = ixy[y-offset: y+offset+1, x-offset: x+offset+1].sum()
                 # harris method
-                # det = (wxx * wyy) - (wxy ** 2)
-                # trace = wxx + wyy
-                # r = det - k * (trace ** 2)
-                # if r > 0.5:
-                #     corner_list.append([x, y, r])
-                #     color_img.itemset((y, x, 0), 0)
-                #     color_img.itemset((y, x, 1), 0)
-                #     color_img.itemset((y, x, 2), 255)
-                # shi_tomasi
-                r = ((wxx + wyy) - np.sqrt((wxx - wyy) ** 2 + 4 * wxy ** 2)) / 2
+                det = (wxx * wyy) - (wxy ** 2)
+                trace = wxx + wyy
+                r = det - k * (trace ** 2)
+                response.append(r)
                 if r > 0.5:
                     corner_list.append([x, y, r])
                     color_img.itemset((y, x, 0), 0)
                     color_img.itemset((y, x, 1), 0)
                     color_img.itemset((y, x, 2), 255)
+                # shi_tomasi
+                # r = ((wxx + wyy) - np.sqrt((wxx - wyy) ** 2 + 4 * wxy ** 2)) / 2
+                # if r > 0.5:
+                #     corner_list.append([x, y, r])
+                #     color_img.itemset((y, x, 0), 0)
+                #     color_img.itemset((y, x, 1), 0)
+                #     color_img.itemset((y, x, 2), 255)
+        response = np.asarray(response).reshape((img.shape))
 
-        return color_img, corner_list
+        return response, color_img, corner_list
 
 
 if __name__ == "__main__":

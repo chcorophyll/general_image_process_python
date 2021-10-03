@@ -44,8 +44,8 @@ def generate_gaussian_kernel(k_size, sigma):
 def gaussian_filter(image, k_size=3, sigma=1):
     kernel_gaussian = generate_gaussian_kernel(k_size, sigma)
     dst_gaussian = img_convolve(image, kernel_gaussian)
-    dst = dst_gaussian.astype(np.unit8)
-    return dst
+    # dst = dst_gaussian.astype(np.unit8)
+    return dst_gaussian
 
 
 if __name__ == "__main__":
@@ -53,6 +53,7 @@ if __name__ == "__main__":
     img = cv2.imread(test_path)
     gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     gaussian_img = gaussian_filter(gray_img)
+    gaussian_img = gaussian_img.astype(np.unit8)
     # show result images
     cv2.imshow("gaussian filter", gaussian_img)
     cv2.waitKey(0)
