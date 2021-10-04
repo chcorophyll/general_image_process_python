@@ -9,7 +9,6 @@ import cv2
 from .GaussianFilter import gaussian_filter
 from .FastCorner import detect, calculate_score
 from .HarrisCorner import HarrisCorner
-from skimage.feature import orb
 
 
 class ORB(object):
@@ -24,9 +23,15 @@ class ORB(object):
         self.harris_k = harris_k
         self.key_points = None
         self.scales = None
-        self.response = None
+        self.responses = None
         self.orientations = None
         self.descriptors = None
+        self.load_positions()
+
+    def load_positions(self):
+        self.positions = np.loadtxt("orb_descriptor_positions.txt", dtype=np.int8)
+        self.positions_0 = self.positions[:, :2]
+        self.positions_1 = self.positions[:, 2:]
 
     def bresenham_circle_mask(self):
         mask = np.zeros((31, 31))
@@ -114,6 +119,31 @@ class ORB(object):
         responses = responses[key_points[:, 0], key_points[:, 1]]
         return key_points, orientations, responses
 
+    def extract_octave(self, image, key_points, orientations):
+        mask = self.mask_border_key_points(image.shape, key_points, distance=20)
+        key_points = key_points[mask]
+        orientations = orientations[mask]
+        descriptors = np.zeros((key_points.shape[0], self.positions.shape[0]), dtype=np.uint8)
+        for i in range(descriptors.shape[0]):
+            angle = orientations[i]
+            sin_value = np.sin(angle)
+            cos_value = np.cos(angle)
+            key_point_row = key_points[i, 0]
+            key_point_col = key_points[i, 1]
+            for j in range(descriptors.shape[1]):
+                position_row_0 = self.positions_0[j, 0]
+                position_col_0 = self.positions_0[j, 1]
+                position_row_1 = self.positions_1[j, 0]
+                position_col_1 = self.positions_1[j, 1]
+                rotated_position_row_0 = round(sin_value*position_row_0 + cos_value*position_col_0)
+                rotated_position_col_0 = round(cos_value*position_row_0 - sin_value*position_col_0)
+                rotated_position_row_1 = round(sin_value*position_row_1 + cos_value*position_col_1)
+                rotated_position_col_1 = round(cos_value*position_row_1 - sin_value*position_col_1)
+                if (image[key_point_row + rotated_position_row_0, key_point_col + rotated_position_col_0] <
+                        image[key_point_row + rotated_position_row_1, key_point_col + rotated_position_col_1]):
+                    descriptors[i, j] = 1
+        return descriptors, mask
+
     def detect(self, image):
         pyramid = list(self.pyramid_gaussian(image))
         key_points_list = []
@@ -124,3 +154,35 @@ class ORB(object):
         for octave in range(len(pyramid)):
             octave_image = pyramid[octave]
             key_points, orientations, responses = self.detect_octave(octave_image)
+            if len(key_points) == 0:
+                key_points_list.append(key_points)
+                responses_list.append(responses)
+                descriptors_list.append(np.zeros((0, 256), dtype=bool))
+                continue
+            descriptors, mask = self.extract_octave(octave_image, key_points, orientations)
+            scaled_key_points = key_points[mask] * self.down_scale ** octave
+            key_points_list.append(scaled_key_points)
+            responses_list.append(responses[mask])
+            orientations_list.append(orientations[mask])
+            scales_list.append(self.down_scale ** octave * np.ones(scaled_key_points.shape[0]))
+            descriptors_list.append(descriptors)
+        key_points = np.vstack(key_points_list)
+        responses = np.hstack(responses_list)
+        scales = np.hstack(scales_list)
+        orientations = np.hstack(orientations_list)
+        descriptors = np.vstack(descriptors_list)
+        if key_points.shape[0] < self.n_key_points:
+            self.key_points = key_points
+            self.scales = scales
+            self.orientations = orientations
+            self.responses = responses
+            self.descriptors = descriptors
+        else:
+            best_indices = responses.argsort()[::-1][:self.n_key_points]
+            self.key_points = key_points[best_indices]
+            self.scales = scales[best_indices]
+            self.orientations = orientations[best_indices]
+            self.responses = responses[best_indices]
+            self.descriptors = descriptors[best_indices]
+
+
