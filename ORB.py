@@ -45,7 +45,7 @@ class ORB(object):
         out_shape = tuple([d // float(down_scale) for d in image.shape][::-1])
         if sigma is None:
             sigma = 2 * down_scale / 6.0
-        gaussian_image = gaussian_filter(image, k_size=int(6*sigma+0.5), sigma=sigma)  # 99% k = 2 * (3 * sigma) +
+        gaussian_image = gaussian_filter(image, k_size=int(6*sigma+0.5), sigma=sigma)  # 99% k = 2 * (3 * sigma) + 1
         resized_image = cv2.resize(gaussian_image, out_shape)
         return resized_image
 
