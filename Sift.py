@@ -11,7 +11,8 @@ import cv2
 from functools import cmp_to_key
 
 
-# scale space and image pyramids
+FLOAT_TOLERANCE = 1e-7
+# 1 scale space and image pyramids
 # base image
 def generate_base_image(image, sigma, assumed_blur):
     image = cv2.resize(image, (0, 0), fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
@@ -63,7 +64,7 @@ def generate_DoG_images(gaussian_images):
         dog_images.append(octave_dog_images)
     return np.array(dog_images)
 
-
+# 2 find, rectify, filter extrema and add orientation
 # check pixel extrema
 def is_extrema(first_sub_image, second_sub_image, third_sub_image, threshold):
     center_pixel_value = second_sub_image[1, 1]
@@ -123,9 +124,10 @@ def localize_extrema(i, j, image_index, octave_index, num_intervals,
             break
         j += int(round(extremum_update[0]))
         i += int(round(extremum_update[1]))
-        image_index = int(round(extremum_update[2]))
+        image_index += int(round(extremum_update[2]))
         if i < image_border_width or i >= image_shape[0] - image_border_width or \
-            j < image_border_width or j >= image_shape[1] - image_border_width:
+            j < image_border_width or j >= image_shape[1] - image_border_width or \
+                image_index < 1 or image_index > num_intervals:
             location_outside_image = True
             break
     if location_outside_image:
@@ -154,8 +156,52 @@ def localize_extrema(i, j, image_index, octave_index, num_intervals,
 
 
 # compute orientations
-def compute_key_points_with_orientations():
-    pass
+def compute_key_points_with_orientations(key_point, octave_index, gaussian_image, radius_factor=3,
+                                         num_bins=36, peak_ratio=0.8, scale_factor=1.5):
+    key_points_with_orientations = []
+    image_shape = gaussian_image.shape
+    scale = scale_factor * key_point.size / np.float32(2 ** (octave_index + 1))
+    radius = int(round(radius_factor * scale))
+    weight_factor = -0.5 / (scale ** 2)
+    raw_histogram = np.zeros(num_bins)
+    smooth_histogram = np.zeros(num_bins)
+    for i in range(-radius, radius + 1):
+        region_y = int(round(key_point.pt[1] / np.float32(2 ** octave_index))) + i
+        if 0 < region_y < image_shape[0] - 1:
+            for j in range(-radius, radius + 1):
+                region_x = int(round(key_point.pt[0] / np.float32(2 ** octave_index))) + j
+                if 0 < region_x < image_shape[1] - 1:
+                    dx = gaussian_image[region_y, region_x + 1] - gaussian_image[region_y, region_x - 1]
+                    dy = gaussian_image[region_y - 1, region_x] - gaussian_image[region_y + 1, region_x]
+                    gradient_magnitude = np.sqrt(dx * dx + dy * dy)
+                    gradient_orientation = np.rad2deg(np.arctan2(dy, dx))
+                    weight = np.exp(weight_factor * (i ** 2 + j ** 2))
+                    histogram_index = int(round(gradient_orientation * num_bins / 360.0))
+                    raw_histogram[histogram_index % num_bins] += weight * gradient_magnitude
+    for bin in range(num_bins):
+        smooth_histogram[bin] = (6 * raw_histogram[bin] +
+                                 4 * (raw_histogram[bin - 1] + raw_histogram[(n + 1) % num_bins]) +
+                                 raw_histogram[bin - 2] +
+                                 raw_histogram[(bin + 2) % num_bins]) / 16.0
+    orientation_max = np.max(smooth_histogram)
+    peak_condition = np.logical_and(smooth_histogram > np.roll(smooth_histogram, 1),
+                                    smooth_histogram > np.roll(smooth_histogram, -1))
+    orientation_peaks = np.where(peak_condition)[0]
+    for peak_index in orientation_peaks:
+        peak_value = smooth_histogram[peak_index]
+        if peak_value >= peak_ratio * orientation_max:
+            left_value = smooth_histogram[(peak_index - 1) % num_bins]
+            right_value = smooth_histogram[(peak_index + 1) % num_bins]
+            interpolated_peak_index = (peak_index +
+                                       0.5 * (left_value - right_value) /
+                                       (left_value - 2 * peak_value + right_value)) % num_bins
+            orientation = 360.0 - interpolated_peak_index * 360 / num_bins
+            if np.abs(orientation - 360.0) < FLOAT_TOLERANCE:
+                orientation = 0
+            new_key_point = cv2.KeyPoint(*key_point.pt, key_point.size,
+                                         orientation, key_point.response, key_point.octave)
+            key_points_with_orientations.append(new_key_point)
+    return key_points_with_orientations
 
 
 # extrema
@@ -178,7 +224,7 @@ def find_scale_space_extrema(gaussian_images, dog_images, num_intervals,
                                                            sigma, contrast_threshold, image_border_width)
                         if localization_result is not None:
                             key_point, localized_image_index = localization_result
-                            key_points_with_oreintations = compute_key_points_with_orientations(key_point,
+                            key_points_with_orientations = compute_key_points_with_orientations(key_point,
                                                                                                 octave_index,
                                                                                                 gaussian_images[octave_index][localized_image_index])
                             for key_point in key_points_with_orientations:
@@ -186,10 +232,65 @@ def find_scale_space_extrema(gaussian_images, dog_images, num_intervals,
     return key_points
 
 
+# compare key_points
+def compare_key_points(key_point_1, key_point_2):
+    if key_point_1.pt[0] != key_point_2.pt[0]:
+        return key_point_1.pt[0] - key_point_2.pt[0]
+    if key_point_1.pt[1] != key_point_2.pt[1]:
+        return key_point_1.pt[1] - key_point_2.pt[1]
+    if key_point_1.size != key_point_2.size:
+        return key_point_2.size - key_point_1.size
+    if key_point_1.angle != key_point_2.angle:
+        return key_point_1.angle - key_point_2.angle
+    if key_point_1.response != key_point_2.response:
+        return key_point_2.response - key_point_1.response
+    if key_point_1.octave != key_point_2.octave:
+        return key_point_2.octave - key_point_1.octave
+    return key_point_2.class_id - key_point_1.class_id
 
 
+# remove duplicates
+def remove_duplicate_key_points(key_points):
+    key_points.sort(key=cmp_to_key(compare_key_points))
+    unique_key_points = [key_points[0]]
+    for next_key_point in key_points[1:]:
+        last_unique_key_point = unique_key_points[-1]
+        if last_unique_key_point.pt[0] != next_key_point.pt[0] or \
+            last_unique_key_point.pt[1] != next_key_point.pt[1] or \
+            last_unique_key_point.size != next_key_point.size or \
+            last_unique_key_point.angle != next_key_point.angle:
+            unique_key_points.append(next_key_point)
+    return unique_key_points
 
 
+# convert coordinate
+def convert_to_input_image_size(key_points):
+    converted_points = []
+    for key_point in key_points:
+        key_point.pt = tuple(0.5 * np.array(key_point.pt))
+        key_point.size *= 0.5
+        key_point.octave = (key_point.octave & ~255) | ((key_point.octave - 1) & 255)
+        converted_points.append(key_point)
+    return converted_points
+
+
+# generate descriptor
+# unpack octave
+def unpack_octave(key_point):
+    octave = key_point.octave & 255  # ???
+    layer = (key_point.octave >> 8) & 255
+    if octave >= 128:
+        octave = octave | -128
+    scale = 1 / np.float32(1 << octave) if octave >= 0 else np.float32(1 << -octave)
+    return octave, layer, scale
+
+
+# generate descriptors
+def generate_descriptors(key_points, gaussian_images, window_width=4,
+                         num_bins=8, scale_multiplier=3, descriptor_max_value=0.2):
+    descriptors = []
+    for key_point in key_points:
+        
 
 
 
