@@ -16,6 +16,9 @@ FLOAT_TOLERANCE = 1e-7
 # base image
 def generate_base_image(image, sigma, assumed_blur):
     image = cv2.resize(image, (0, 0), fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
+    # 原始图片是相机采集假定是被assumed_blur高斯模糊 上采样后模糊强度是2倍assumed_blur
+    # 起始sigma 利用高斯分布乘积关求得
+    # https://math.stackexchange.com/questions/3159846/what-is-the-resulting-sigma-after-applying-successive-gaussian-blur
     sigma_diff = np.sqrt(max((sigma ** 2) - ((2 * assumed_blur) ** 2), 0.01))
     return cv2.GaussianBlur(image, (0, 0), sigmaX=sigma_diff, sigmaY=sigma_diff)
 
@@ -27,6 +30,9 @@ def compute_octave_num(image_shape):
 
 # gaussian kernels
 def generate_gaussian_kernels(sigma, num_intervals):
+    # 为什么是+3？
+    # 因为s层dog图像，极值定位时需要额外首尾两层，gaussian层再加1
+    # https://lsxiang.github.io/Journey2SLAM/computer_vision/SIFT/
     num_images_per_octave = num_intervals + 3
     k = 2 ** (1 / num_intervals)
     gaussian_kernels = np.zeros(num_images_per_octave)
@@ -63,6 +69,7 @@ def generate_DoG_images(gaussian_images):
             octave_dog_images.append(np.subtract(second_image, first_image))
         dog_images.append(octave_dog_images)
     return np.array(dog_images)
+
 
 # 2 find, rectify, filter extrema and add orientation
 # check pixel extrema
