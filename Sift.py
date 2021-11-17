@@ -126,7 +126,7 @@ def localize_extrema(i, j, image_index, octave_index, num_intervals,
                                third_image[i-1: i+2, j-1: j+2]]).astype("float32") / 255
         gradient = compute_gradient(pixel_cube)
         hessian = compute_hessian(pixel_cube)
-        extremum_update = -np.linalg.lstsq(hessian, gradient, rcond=None)[0]
+        extremum_update = -np.linalg.lstsq(hessian, gradient, rcond=None)[0]  #泰勒展开求导得出
         if np.abs(extremum_update[0]) < 0.5 and np.abs(extremum_update[1]) < 0.5 and np.abs(extremum_update[2]) < 0.5:
             break
         j += int(round(extremum_update[0]))
@@ -143,20 +143,22 @@ def localize_extrema(i, j, image_index, octave_index, num_intervals,
     if attempt_index >= num_attempts - 1:
         print("Exceed num attempts")
         return None
-    value = pixel_cube[1, 1, 1] + 0.5 * np.dot(gradient, extremum_update)
+    value = pixel_cube[1, 1, 1] + 0.5 * np.dot(gradient, extremum_update)  # delta 代入泰勒公式二阶展开式可得更新值
+    # width, height, scale 三个尺度的delta都小于0.5
+    #
     if np.abs(value) * num_intervals >= contrast_threshold:
         xy_hessian = hessian[:2, :2]
         xy_hessian_trace = np.trace(xy_hessian)
-        xy_hessian_det =  np.linalg.det(xy_hessian)
+        xy_hessian_det = np.linalg.det(xy_hessian)
         if xy_hessian_det > 0 and \
                 eigen_value_ratio * (xy_hessian_trace ** 2) < ((eigen_value_ratio + 1) ** 2) * xy_hessian_trace:
             key_point = cv2.KeyPoint()
             key_point.pt = ((j + extremum_update[0]) * (2 ** octave_index),
-                            (i + extremum_update[1]) * (2 ** octave_index))
+                            (i + extremum_update[1]) * (2 ** octave_index))  # j: width direction
             key_point.octave = octave_index + image_index * (2 ** 8) + \
-                               int(round(extremum_update[2]+0.5) * 255) * 2 ** 16 #???
+                               int(round(extremum_update[2]+0.5) * 255) * (2 ** 16)  # 后八位存octave 其次存image index 前16位存delta
             key_point.size = sigma * (2 ** ((image_index + extremum_update[2]) / np.float32(num_intervals))) * \
-                             (2 ** (octave_index + 1))
+                             (2 ** (octave_index + 1))  # scale的计算公式 应该是octave_index而非octave_index + 1 ???
             key_point.response = np.abs(value)
             return key_point, image_index
     return None
@@ -167,7 +169,7 @@ def compute_key_points_with_orientations(key_point, octave_index, gaussian_image
                                          num_bins=36, peak_ratio=0.8, scale_factor=1.5):
     key_points_with_orientations = []
     image_shape = gaussian_image.shape
-    scale = scale_factor * key_point.size / np.float32(2 ** (octave_index + 1))
+    scale = scale_factor * key_point.size / np.float32(2 ** (octave_index + 1))  # 正太分布 三个标准差覆盖99%
     radius = int(round(radius_factor * scale))
     weight_factor = -0.5 / (scale ** 2)
     raw_histogram = np.zeros(num_bins)
@@ -179,17 +181,17 @@ def compute_key_points_with_orientations(key_point, octave_index, gaussian_image
                 region_x = int(round(key_point.pt[0] / np.float32(2 ** octave_index))) + j
                 if 0 < region_x < image_shape[1] - 1:
                     dx = gaussian_image[region_y, region_x + 1] - gaussian_image[region_y, region_x - 1]
-                    dy = gaussian_image[region_y - 1, region_x] - gaussian_image[region_y + 1, region_x]
+                    dy = gaussian_image[region_y - 1, region_x] - gaussian_image[region_y + 1, region_x]  # 梯度取反, 实际theta是360-theta
                     gradient_magnitude = np.sqrt(dx * dx + dy * dy)
                     gradient_orientation = np.rad2deg(np.arctan2(dy, dx))
-                    weight = np.exp(weight_factor * (i ** 2 + j ** 2))
+                    weight = np.exp(weight_factor * (i ** 2 + j ** 2))  # 高斯加权
                     histogram_index = int(round(gradient_orientation * num_bins / 360.0))
                     raw_histogram[histogram_index % num_bins] += weight * gradient_magnitude
     for bin in range(num_bins):
         smooth_histogram[bin] = (6 * raw_histogram[bin] +
-                                 4 * (raw_histogram[bin - 1] + raw_histogram[(n + 1) % num_bins]) +
+                                 4 * (raw_histogram[bin - 1] + raw_histogram[(bin + 1) % num_bins]) +
                                  raw_histogram[bin - 2] +
-                                 raw_histogram[(bin + 2) % num_bins]) / 16.0
+                                 raw_histogram[(bin + 2) % num_bins]) / 16.0  # 一纬高斯模糊
     orientation_max = np.max(smooth_histogram)
     peak_condition = np.logical_and(smooth_histogram > np.roll(smooth_histogram, 1),
                                     smooth_histogram > np.roll(smooth_histogram, -1))
@@ -201,7 +203,7 @@ def compute_key_points_with_orientations(key_point, octave_index, gaussian_image
             right_value = smooth_histogram[(peak_index + 1) % num_bins]
             interpolated_peak_index = (peak_index +
                                        0.5 * (left_value - right_value) /
-                                       (left_value - 2 * peak_value + right_value)) % num_bins
+                                       (left_value - 2 * peak_value + right_value)) % num_bins  # 二项式拟合
             orientation = 360.0 - interpolated_peak_index * 360 / num_bins
             if np.abs(orientation - 360.0) < FLOAT_TOLERANCE:
                 orientation = 0
@@ -276,7 +278,7 @@ def convert_to_input_image_size(key_points):
     for key_point in key_points:
         key_point.pt = tuple(0.5 * np.array(key_point.pt))
         key_point.size *= 0.5
-        key_point.octave = (key_point.octave & ~255) | ((key_point.octave - 1) & 255)
+        key_point.octave = (key_point.octave & ~255) | ((key_point.octave - 1) & 255)  # 此处octave - 1保存
         converted_points.append(key_point)
     return converted_points
 
@@ -284,7 +286,7 @@ def convert_to_input_image_size(key_points):
 # generate descriptor
 # unpack octave
 def unpack_octave(key_point):
-    octave = key_point.octave & 255  # ???
+    octave = key_point.octave & 255
     layer = (key_point.octave >> 8) & 255
     if octave >= 128:
         octave = octave | -128
@@ -298,30 +300,30 @@ def generate_descriptors(key_points, gaussian_images, window_width=4,
     descriptors = []
     for key_point in key_points:
         octave, layer, scale = unpack_octave(key_point)
-        gaussian_image = gaussian_images[octave + 1, layer]
+        gaussian_image = gaussian_images[octave + 1, layer]  # octave + 1 因为还原到原始尺寸的时候减1了
         num_rows, num_cols = gaussian_image.shape
-        point = round(scale * np.array(key_point.pt)).astype("int")
+        point = round(scale * np.array(key_point.pt)).astype("int")  # 还原height 以及 width 到octave层的尺寸
         bins_per_degree = num_bins / 360.0
         angle = 360.0 - key_point.angle
         cos_angle = np.cos(np.deg2rad(angle))
         sin_angle = np.sin(np.deg2rad(angle))
-        weight_multiplier = -0.5 / ((0.5 * window_width) ** 2)
+        weight_multiplier = -0.5 / ((0.5 * window_width) ** 2)  # 窗口权重
         row_bin_list = []
         col_bin_list = []
         magnitude_list = []
         orientation_bin_list = []
         histogram_tensor = np.zeros((window_width + 2, window_width + 2, num_bins))
-        hist_width = scale_multiplier * 0.5 * scale * key_point.size
+        hist_width = scale_multiplier * 0.5 * scale * key_point.size  # 3 * sigma
         half_width = int(round(hist_width * np.sqrt(2) * (window_width + 1) * 0.5))
         half_width = int(min(half_width, np.sqrt(num_rows ** 2 + num_cols ** 2)))
         for row in range(-half_width, half_width + 1):
             for col in range(-half_width, half_width + 1):
                 row_rotation = col * sin_angle + row * cos_angle
                 col_rotation = col * cos_angle - row * sin_angle
-                row_bin = (row_rotation / hist_width) + 0.5 * window_width - 0.5
+                row_bin = (row_rotation / hist_width) + 0.5 * window_width - 0.5  # 0.5 * window_width 半边补偿 0.5作偏置补充 # https://blog.csdn.net/zddblog/article/details/7521424
                 col_bin = (col_rotation / hist_width) + 0.5 * window_width - 0.5
-                if row_bin > -1 and row_bin < window_width and col_bin > -1 and col_bin < window_width:
-                    window_row = int(round(point[1] + row))
+                if -1 < row_bin < window_width and -1 < col_bin < window_width:  # 限制bin范围
+                    window_row = int(round(point[1] + row))  # 实际height
                     window_col = int(round(point[0] + col))
                     if 0 < window_row < num_rows - 1 and 0 < window_col < num_cols - 1:
                         dx = gaussian_image[window_row, window_col + 1] - gaussian_image[window_row, window_col - 1]
@@ -347,6 +349,8 @@ def generate_descriptors(key_points, gaussian_images, window_width=4,
                 orientation_bin_floor += num_bins
             if orientation_bin_floor >= num_bins:
                 orientation_bin_floor -= num_bins
+            # 反三次线性插值 对某个顶点的贡献值是以该顶点和正方体内的点为对角线的两个顶点，所构成的立方体的体积
+            # 权重见https://upload.wikimedia.org/wikipedia/commons/6/62/Trilinear_interpolation_visualisation.svg
             c1 = magnitude * row_fraction
             c0 = magnitude * (1 - row_fraction)
             c11 = c1 * col_fraction
@@ -361,7 +365,7 @@ def generate_descriptors(key_points, gaussian_images, window_width=4,
             c010 = c01 * (1 - orientation_fraction)
             c001 = c00 * orientation_fraction
             c000 = c00 * (1 - orientation_fraction)
-            histogram_tensor[row_bin_floor+1, col_bin_floor+1, orientation_bin_floor] += c000
+            histogram_tensor[row_bin_floor + 1, col_bin_floor + 1, orientation_bin_floor] += c000
             histogram_tensor[row_bin_floor + 1, col_bin_floor + 1, (orientation_bin_floor + 1) % num_bins] += c001
             histogram_tensor[row_bin_floor + 1, col_bin_floor + 2, orientation_bin_floor] += c010
             histogram_tensor[row_bin_floor + 1, col_bin_floor + 2, (orientation_bin_floor + 1) % num_bins] += c011
