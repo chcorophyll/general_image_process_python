@@ -4,9 +4,16 @@ https://github.com/Simon-Hohberg/Viola-Jones/tree/master/violajones
 https://medium.datadriveninvestor.com/understanding-and-implementing-the-viola-jones-image-classification-algorithm-85621f7fe20b
 https://github.com/aparande/FaceDetection
 """
+from multiprocessing import Pool
+from functools import partial
+import progressbar
 import numpy as np
 
 
+LOADING_BAR_LENGTH = 50
+
+
+# construct integral image
 def to_integral_image(image_array):
     row_sum = np.zeros(image_array.shape)
     integral_image_array = np.zeros((image_array.shape[0] + 1, image_array.shape[1] + 1))
@@ -17,6 +24,7 @@ def to_integral_image(image_array):
     return integral_image_array
 
 
+# integral compute
 def sum_region(integral_image_array, top_left, bottom_right):
     top_left = (top_left[1], top_left[0])
     bottom_right = (bottom_right[1], bottom_right[0])
@@ -28,6 +36,7 @@ def sum_region(integral_image_array, top_left, bottom_right):
            integral_image_array[bottom_left] + integral_image_array[top_left]
 
 
+# enum type
 def enum(**enums):
     return type("Enum", (), enums)
 
@@ -38,6 +47,7 @@ FeatureTypes = [FeatureType.TWO_VERTICAL, FeatureType.TWO_HORIZONTAL, FeatureTyp
                 FeatureType.THREE_HORIZONTAL, FeatureType.FOUR]
 
 
+# Haar Feature
 class HaarLikeFeature(object):
 
     def __init__(self, feature_type, position, width, height, threshold, polarity):
@@ -112,6 +122,7 @@ class HaarLikeFeature(object):
         return self.weight * (1 if score < self.polarity * self.threshold else -1)
 
 
+# create feature
 def create_features(img_height, img_width, min_feature_width,
                     max_feature_width, min_feature_height, max_feature_height):
     features = []
@@ -125,3 +136,60 @@ def create_features(img_height, img_width, min_feature_width,
                         features.append(HaarLikeFeature(feature, (x, y), feature_width, feature_height, 0, 1))
                         features.append(HaarLikeFeature(feature, (x, y), feature_width, feature_height, 0, -1))
     return features
+
+
+# get feature vote
+def get_feature_vote(feature, image):
+    return feature.get_vote(image)
+
+
+# adaboost learn
+def learn(positive_integral_images, negative_integral_images,
+          num_classifiers=-1, min_feature_width=1,
+          max_feature_width=-1, min_feature_height=1, max_feature_height=-1):
+    num_pos = len(positive_integral_images)
+    num_neg = len(negative_integral_images)
+    num_imgs = num_pos + num_neg
+    img_height, img_width = positive_integral_images[0].shape
+    max_feature_height = img_height if max_feature_height == -1 else max_feature_height
+    max_feature_width = img_width if min_feature_width == -1 else max_feature_width
+    positive_weights = np.ones(num_pos) * 1.0 / (2 * num_pos)
+    negative_weights = np.ones(num_neg) * 1.0 / (2 * num_neg)
+    weights = np.hstack((positive_weights, negative_weights))
+    labels = np.hstack((np.ones(num_pos), np.ones(num_neg) * -1))
+    images = positive_integral_images + negative_integral_images
+    features = create_features(img_height, img_width, min_feature_width,
+                               max_feature_width, min_feature_height, max_feature_width)
+    num_features = len(features)
+    feature_indexs = list(range(num_features))
+    num_classifiers = num_features if num_classifiers == -1 else num_classifiers
+    votes = np.zeros((num_imgs, num_features))
+    bar = progressbar.ProgressBar()
+    pool = Pool(processes=None)
+    for i in bar(range(num_imgs)):
+        votes[i, :] = np.array(list(pool.map(partial(get_feature_vote, image=images[i]), features)))
+    classifiers = []
+    bar = progressbar.ProgressBar()
+    for _ in bar((range(num_classifiers))):
+        classification_errors = np.zeros(len(feature_indexs))
+        weights *= 1 / np.sum(weights)
+        for f in range(len(feature_indexs)):
+            f_idx = feature_indexs[f]
+            error = sum(map(lambda img_idx: weights[img_idx] if labels[img_idx] != votes[img_idx, f_idx] else 0,
+                            range(num_imgs)))
+            classification_errors[f] = error
+        min_error_idx = np.argmin(classification_errors)
+        best_error = classification_errors[min_error_idx]
+        best_feature_idx = feature_indexs[min_error_idx]
+        best_feature = features[best_feature_idx]
+        feature_weight = 0.5 * np.log((1 - best_error) / best_error)
+        best_feature.weight = feature_weight
+        classifiers.append(best_feature)
+        weights = np.array(list(map(lambda img_idx: weights[img_idx] * np.sqrt((1-best_error)/best_error)
+        if labels[img_idx] != votes[img_idx, best_feature_idx]
+        else weights[img_idx] * np.sqrt(best_error/(1-best_error)), range(num_imgs))))
+        feature_indexs.remove(best_feature_idx)
+    return classifiers
+
+
+
