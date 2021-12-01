@@ -126,7 +126,7 @@ def localize_extrema(i, j, image_index, octave_index, num_intervals,
                                third_image[i-1: i+2, j-1: j+2]]).astype("float32") / 255
         gradient = compute_gradient(pixel_cube)
         hessian = compute_hessian(pixel_cube)
-        extremum_update = -np.linalg.lstsq(hessian, gradient, rcond=None)[0]  #泰勒展开求导得出
+        extremum_update = -np.linalg.lstsq(hessian, gradient, rcond=None)[0]  # 泰勒展开求导得出
         if np.abs(extremum_update[0]) < 0.5 and np.abs(extremum_update[1]) < 0.5 and np.abs(extremum_update[2]) < 0.5:
             break
         j += int(round(extremum_update[0]))
@@ -191,7 +191,7 @@ def compute_key_points_with_orientations(key_point, octave_index, gaussian_image
         smooth_histogram[bin] = (6 * raw_histogram[bin] +
                                  4 * (raw_histogram[bin - 1] + raw_histogram[(bin + 1) % num_bins]) +
                                  raw_histogram[bin - 2] +
-                                 raw_histogram[(bin + 2) % num_bins]) / 16.0  # 一纬高斯模糊
+                                 raw_histogram[(bin + 2) % num_bins]) / 16.0  # 一纬高斯模糊 https://theailearner.com/2019/05/06/gaussian-blurring/
     orientation_max = np.max(smooth_histogram)
     peak_condition = np.logical_and(smooth_histogram > np.roll(smooth_histogram, 1),
                                     smooth_histogram > np.roll(smooth_histogram, -1))
@@ -203,7 +203,7 @@ def compute_key_points_with_orientations(key_point, octave_index, gaussian_image
             right_value = smooth_histogram[(peak_index + 1) % num_bins]
             interpolated_peak_index = (peak_index +
                                        0.5 * (left_value - right_value) /
-                                       (left_value - 2 * peak_value + right_value)) % num_bins  # 二项式拟合
+                                       (left_value - 2 * peak_value + right_value)) % num_bins  # 二项式拟合 https://ccrma.stanford.edu/~jos/sasp/Quadratic_Interpolation_Spectral_Peaks.html
             orientation = 360.0 - interpolated_peak_index * 360 / num_bins
             if np.abs(orientation - 360.0) < FLOAT_TOLERANCE:
                 orientation = 0
@@ -260,6 +260,8 @@ def compare_key_points(key_point_1, key_point_2):
 
 # remove duplicates
 def remove_duplicate_key_points(key_points):
+    if len(key_points) < 2:
+        return key_points
     key_points.sort(key=cmp_to_key(compare_key_points))
     unique_key_points = [key_points[0]]
     for next_key_point in key_points[1:]:
