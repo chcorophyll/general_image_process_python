@@ -3,7 +3,7 @@ References:
 https://github.com/tbliu/FAST/blob/master/src/fast.py
 https://github.com/scikit-image/scikit-image/blob/main/skimage/feature/corner_cy.pyx
 """
-from skimage.feature import
+
 
 def shape(array):
     rows = len(array)

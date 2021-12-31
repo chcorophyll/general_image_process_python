@@ -5,6 +5,7 @@ https://github.com/rmislam/PythonSIFT
 http://weitz.de/sift/index.html?size=large
 https://medium.com/@shartoo518/1-%E6%A6%82%E8%A7%88-5921fa471efb
 https://www.analyticsvidhya.com/blog/2019/10/detailed-guide-powerful-sift-technique-image-matching-python/
+https://github.com/scikit-image/scikit-image/blob/main/skimage/feature/sift.py
 """
 import numpy as np
 import cv2
@@ -292,7 +293,7 @@ def unpack_octave(key_point):
     layer = (key_point.octave >> 8) & 255
     if octave >= 128:
         octave = octave | -128
-    scale = 1 / np.float32(1 << octave) if octave >= 0 else np.float32(1 << -octave)
+    scale = 1 / np.float32(1 << octave) if octave >= 0 else np.float32(1 << -octave)  # 以原图为参考系
     return octave, layer, scale
 
 
@@ -315,7 +316,7 @@ def generate_descriptors(key_points, gaussian_images, window_width=4,
         magnitude_list = []
         orientation_bin_list = []
         histogram_tensor = np.zeros((window_width + 2, window_width + 2, num_bins))
-        hist_width = scale_multiplier * 0.5 * scale * key_point.size  # 3 * sigma
+        hist_width = scale_multiplier * 0.5 * scale * key_point.size  # 3 * sigma  其中0.5是因为存储的时候octave+1
         half_width = int(round(hist_width * np.sqrt(2) * (window_width + 1) * 0.5))
         half_width = int(min(half_width, np.sqrt(num_rows ** 2 + num_cols ** 2)))
         for row in range(-half_width, half_width + 1):

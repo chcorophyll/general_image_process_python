@@ -2,6 +2,7 @@
 References:
 https://github.com/TheAlgorithms/Python/blob/master/computer_vision/harris_corner.py
 https://github.com/scikit-image/scikit-image/blob/main/skimage/feature/corner.py
+
 """
 
 import cv2
