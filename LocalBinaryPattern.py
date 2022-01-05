@@ -31,7 +31,7 @@ def coord_map(dimensions, coordinate, mode):
         if coordinate < 0:
             coordinate = -coordinate - 1
         if coordinate > max_coordinate:
-            if (coordinate // dimensions) % 2 != 0:
+            if (coordinate // dimensions) % 2 != 0:  # ?
                 return max_coordinate - (coordinate % dimensions)
             else:
                 return coordinate % dimensions
@@ -123,7 +123,7 @@ def local_binary_pattern(image, points_number, radius, method="D"):
                 for i in range(points_number):
                     sum_ += texture[i]
                     var_ += texture[i] * texture[i]
-                lbp = (var_ - (sum_ * sum_) / points_number) / points_number # var = E(x^2) - (E(x))^2
+                lbp = (var_ - (sum_ * sum_) / points_number) / points_number  # var = E(x^2) - (E(x))^2
             elif method == "U" or method == "N":
                 changes = 0
                 for i in range(points_number-1):
