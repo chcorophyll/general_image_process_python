@@ -8,7 +8,7 @@ https://github.com/scikit-image/scikit-image/blob/main/skimage/feature/corner.py
 import cv2
 import numpy as np
 from .GaussianFilter import gaussian_filter
-
+import skimage.feature
 
 def img2col(image, block_size):
     rows, cols = image.shape
@@ -50,8 +50,8 @@ class HarrisCorner(object):
     def sobel(self, img):
         kernel_x = np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
         kernel_y = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
-        dst_x = np.abs(img_convolve(image, kernel_x))
-        dst_y = np.abs(img_convolve(image, kernel_y))
+        dst_x = np.abs(img_convolve(img, kernel_x))
+        dst_y = np.abs(img_convolve(img, kernel_y))
         dst_x = dst_x * 255 / np.max(dst_x)
         dst_y = dst_y * 255 / np.max(dst_y)
         return dst_x, dst_y
@@ -59,7 +59,7 @@ class HarrisCorner(object):
     def gaussian(self, img, k_size=3, sigma=1):
         return gaussian_filter(img, k_size, sigma)
 
-    def detect(self, img_path: str):
+    def detect(self, img_path):
         img = cv2.imread(img_path, 0)
         height, width = img.shape
         corner_list = []
@@ -78,7 +78,7 @@ class HarrisCorner(object):
         iyy = gaussian_filter(iyy)
         ixy = gaussian_filter(ixy)
         k = self.k
-        offset = self.kernel_size //
+        offset = self.kernel_size // 2
         response = []
         for y in range(offset, height-offset):
             for x in range(offset, width-offset):
