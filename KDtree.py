@@ -88,69 +88,35 @@ def find_nearest(tree, target_point):
 
 
 # K Nearest Point
-class Node(namedtuple("Node", "location split_axis left_child right_child")):
 
-    def __repr__(self):
-        return str(tuple(self))
+def find_nearest(tree, target_point, number_near):
 
-
-class Kdtree():
-
-    def __init__(self, k=1):
-        self.k = k
-        self.kdtree = None
-
-    def get_first_split_axis(self, data_set):
-        feature_variance = np.var(np.array(data_set), axis=0)
-        first_spilt_axis = np.argmax(feature_variance)
-        if 0 <= first_spilt_axis < self.k:
-            return first_spilt_axis
+    def back_track(kd_node, target, max_distance):
+        if kd_node is None:
+            return
+        split_axis = kd_node.split_axis
+        pivot = kd_node.element
+        if target[split_axis] <= pivot[split_axis]:
+            nearer_node = kd_node.left
+            further_node = kd_node.right
         else:
-            raise ValueError("Index not in Range Number of Features ")
+            nearer_node = kd_node.right
+            further_node = kd_node.left
+        back_track(nearer_node, target, max_distance)
+        result.sort(key=lambda x: x[1])
+        if result[-1][1] < max_distance:
+            max_distance = result[-1][1]
+        temp_distance = np.abs(pivot[split_axis] - target[split_axis])
+        if max_distance < temp_distance:
+            return   # 球与超平面不相交
+        temp_distance = np.sqrt(sum((p_1 - p_2) ** 2 for p_1, p_2 in zip(pivot, target)))
+        if temp_distance < result[-1][1]:
+            result[-1][0] = pivot
+            result[-1][1] = temp_distance
+            max_distance = temp_distance
+        back_track(further_node, target, max_distance)
 
-    def _fit(self, data_set, depth=None):
-        try:
-            k = self.k
-        except IndexError as e:
-            return None
-        if not depth:
-            first_split_axis = self.get_first_split_axis(data_set) % k
-        else:
-            first_split_axis = depth % k
-        data_set.sort(key=lambda x: x[first_split_axis])
-        median = len(data_set) // 2
-        try:
-            data_set[median]
-        except IndexError:
-            return None
-        return Node(location=data_set[median],
-                    split_axis=first_split_axis,
-                    left_child=self._fit(data_set[:median], (first_split_axis+1) % k),
-                    right_child=self._fit(data_set[median+1:], (first_split_axis+1) % k))
-
-    def _search(self, target_point, tree=None, depth=None, best=None):
-        if tree is None:
-            return best
-        k = self.k
-        if not depth:
-            first_split_axis = tree.split_axis % k
-        else:
-            first_split_axis = depth % k
-        if target_point[first_split_axis] < tree.location[first_split_axis]:
-            next_node = tree.left_child
-        else:
-            next_node = tree.right_child
-        if next_node:
-            best = next_node.location
-        return self._search(target_point, tree=next_node, depth=(first_split_axis+1) % k, best=best)
-
-    def fit(self, data_set):
-        self.kdtree = self._fit(data_set)
-        return self.kdtree
-
-    def predict(self, point):
-        result = self._search(point, self.kdtree)
-        return result
-
-
-
+    k = len(target_point)
+    result = [([0] * k, float("inf"))] * number_near
+    back_track(tree.root, target_point, float("inf"))
+    return result
