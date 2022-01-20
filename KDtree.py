@@ -5,7 +5,7 @@ https://github.com/fengdu78/lihang-code/blob/master/%E7%AC%AC03%E7%AB%A0%20k%E8%
 """
 from collections import namedtuple
 import numpy as np
-
+import scipy.ndimage.filters
 
 class KdNode(object):
 
