@@ -43,11 +43,11 @@ def _hog_histograms(gradient_columns, gradient_rows, cell_columns, cell_rows,
                     size_columns, size_rows, num_of_cell_cols, num_of_cell_rows,
                     num_of_orientations, orientation_histogram):
     magnitude = np.hypot(gradient_columns, gradient_rows)
-    orientation = np.rad2deg(np.arctan2(gradient_rows, gradient_columns)) % 180  # 与论文不一样 论文是取绝对值 而不是180取余
+    orientation = np.rad2deg(np.arctan2(gradient_rows, gradient_columns)) % 180  # 与论文不一样 论文是取绝对值 而不是180取余 其实效果一样
     r_0 = cell_rows // 2
     c_0 = cell_columns // 2
-    cc = cell_rows * num_of_cell_rows
-    cr = cell_columns * num_of_cell_cols
+    cc = cell_rows * num_of_cell_rows  # 行高
+    cr = cell_columns * num_of_cell_cols  # 列宽
     range_rows_stop = (cell_rows + 1) // 2
     range_rows_start = - cell_rows // 2
     range_columns_stop = (cell_columns + 1) // 2

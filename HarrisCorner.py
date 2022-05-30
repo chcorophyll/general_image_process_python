@@ -74,9 +74,9 @@ class HarrisCorner(object):
         iyy = sobel_y ** 2
         ixy = sobel_x * sobel_y
         # gaussian
-        ixx = gaussian_filter(ixx)
-        iyy = gaussian_filter(iyy)
-        ixy = gaussian_filter(ixy)
+        # ixx = gaussian_filter(ixx)
+        # iyy = gaussian_filter(iyy)
+        # ixy = gaussian_filter(ixy)
         k = self.k
         offset = self.kernel_size // 2
         response = []

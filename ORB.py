@@ -79,7 +79,9 @@ class ORB(object):
     def corner_orientations(self, image, key_points, bresenham_mask):
         mask_rows = bresenham_mask.shape[0]
         mask_cols = bresenham_mask.shape[1]
-        padded_image = np.pad(image, (mask_rows//2, mask_cols//2), mode="constant", constant_values=0)
+        mask_rows_1 = (mask_rows - 1) // 2
+        mask_cols_1 = (mask_cols - 1) // 2
+        padded_image = np.pad(image, (mask_rows_1, mask_cols_1), mode="constant", constant_values=0)
         orientations = np.zeros(key_points.shape[0])
         for i in range(key_points.shape[0]):
             raw_row = key_points[i, 0]
@@ -91,9 +93,9 @@ class ORB(object):
                 for col in range(mask_cols):
                     if bresenham_mask[row][col]:
                         current = padded_image[raw_row+row, raw_col+col]
-                        m_10 += current * (col - mask_cols//2)
+                        m_10 += current * (col - mask_cols_1)
                         temp_m_01 += current
-                m_01 = temp_m_01 * (row - mask_rows//2)
+                m_01 += temp_m_01 * (row - mask_rows_1)
             orientations[i] = np.arctan2(m_01, m_10)
         return orientations
 

@@ -111,7 +111,7 @@ def local_binary_pattern(image, points_number, radius, method="D"):
         for c in range(cols):
             for i in range(points_number):
                 texture[i] = _bilinear_interpolation(image, rows, cols, r+rp[i], c+cp[i], "C", 0)
-            for i in range(points_number):
+            # for i in range(points_number):
                 if texture[i] - image[r][c] >= 0:
                     signed_texture[i] = 1
                 else:

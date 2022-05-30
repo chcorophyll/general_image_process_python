@@ -153,7 +153,7 @@ def suppress(image, corners, regions_of_interest):
     return corners, regions_of_interest
 
 
-def detect(image, threshold=, fast_n=12):
+def detect(image, threshold=50, fast_n=12):
     image = rgb2gray(image)
     corners = []
     regions_of_interest = []
