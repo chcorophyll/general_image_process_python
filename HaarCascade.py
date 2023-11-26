@@ -279,6 +279,7 @@ class ViolaJones:
                         j += 1
                 i += 1
         return np.array(features)
+    
 
     def apply_features(self, features, training_data):
         X = np.zeros((len(features), len(training_data)))

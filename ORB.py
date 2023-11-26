@@ -1,4 +1,4 @@
-"""
+ """
 References:
 https://github.com/TheAlgorithms/Python/blob/master/computer_vision/harris_corner.py
 https://github.com/scikit-image/scikit-image/blob/main/skimage/feature/corner.py
@@ -167,7 +167,7 @@ class ORB(object):
             responses_list.append(responses[mask])
             orientations_list.append(orientations[mask])
             scales_list.append(self.down_scale ** octave * np.ones(scaled_key_points.shape[0]))
-            descriptors_list.append(descriptors)
+            descriptors_list.append(descriptors) 
         key_points = np.vstack(key_points_list)
         responses = np.hstack(responses_list)
         scales = np.hstack(scales_list)

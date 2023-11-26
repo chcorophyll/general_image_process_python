@@ -39,7 +39,7 @@ def bilateral_filter(img, space_sigma=1, intensity_sigma=1, k_size=3):
             current_gaussian = np.multiply(intensity_gaussian, space_gaussian)
             values = np.multiply(window_intensity, current_gaussian)
             current_value = np.sum(values) / np.sum(current_gaussian)
-            bilateral_filter[i - pad_size][j - pad_size] = current_value
+            bilateral_img[i - pad_size][j - pad_size] = current_value
     return bilateral_img
 
 

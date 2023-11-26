@@ -53,7 +53,7 @@ def generate_gaussian_images(image, num_octaves, gaussian_kernels):
         for kernel in gaussian_kernels[1:]:
             image = cv2.GaussianBlur(image, (0, 0), sigmaX=kernel, sigmaY=kernel)
             octave_gaussian_images.append(image)
-        gaussian_kernels.append(octave_gaussian_images)
+        gaussian_images.append(octave_gaussian_images)
         octave_base = octave_gaussian_images[-3]
         next_level_width = int(octave_base.shape[1] / 2)
         next_level_height = int(octave_base.shape[0] / 2)
